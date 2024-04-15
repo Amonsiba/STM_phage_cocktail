@@ -1,0 +1,267 @@
+---
+title: "Phage Kinetics"
+author: "Alisha Monsibais"
+date: '2023-02-13'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# Project Summary 
+One Step Growth Curve 
+
+Rate of Attachment 
+
+Color Palette
+  ANB - "#FEC000"
+  B28B - "black"
+  Cocktail - "#EF2402" 
+  KB - "#0420BC"
+  SBP - "#B7167E"
+
+## 1. Exploratory Data Analysis 
+```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
+library(knitr) #nice table output 
+library(tidyverse)
+library(reshape2) #helps melt data - data wrangling 
+library(ggbreak)
+library(dplyr)
+
+```
+
+```{r loading in data}
+#Set Wd
+setwd("~/Desktop/Chapter 1_ Kinetics and Characterization/Raw Data for Figures_231208/Figure 4. Phage Kinetics/R_docs_data_analysis/")
+KB_Data <- read.csv("Raw_data_OSGC_KB.csv")
+SBP_Data <- read.csv("Raw_data_OSGC_SBP.csv")
+ANB_Data <- read.csv("Raw_data_OSGC_ANB.csv")
+```
+
+```{r data wrangling }
+
+KB_tidy_Data <- KB_Data %>%
+  pivot_longer(
+    cols = starts_with("rep"),
+    names_to = "rep",
+    names_prefix = "rep",
+    values_to = "PFU") %>%
+  group_by(Time) %>%
+  summarise(n = length(PFU), Median = median(PFU), Average = mean(PFU), SD = sd(PFU), SE = sd(PFU)/sqrt(length((PFU))))
+
+ANB_tidy_Data <- ANB_Data %>%
+  pivot_longer(
+    cols = starts_with("rep"),
+    names_to = "rep",
+    names_prefix = "rep",
+    values_to = "PFU") %>%
+  group_by(Time) %>%
+  summarise(n = length(PFU), Median = median(PFU), Average = mean(PFU), SD = sd(PFU), SE = sd(PFU)/sqrt(length((PFU))))
+  
+
+
+SBP_tidy_Data <- SBP_Data %>%
+  pivot_longer(
+    cols = starts_with("rep"),
+    names_to = "rep",
+    names_prefix = "rep",
+    values_to = "PFU") %>%
+  group_by(Time) %>%
+  summarise(n = length(PFU), Median = median(PFU), Average = mean(PFU), SD = sd(PFU), SE = sd(PFU)/sqrt(length((PFU))))
+
+```
+
+
+```{r Graphing Phage Kinetics - OSGC, echo=FALSE, message=FALSE, warning=FALSE}
+
+SBP_OSGC <- SBP_tidy_Data  %>%
+  ggplot(aes(x=Time, y=Average)) +
+  geom_line(size = 1.5, color = "#B7167E") +
+  labs(y = "PFU/mL", x = "Time (mins)") +
+  geom_point(size = 1.5, color = "#B7167E") +
+  geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE), size = 0.6,  width = 5)+
+  ylim(-400000, 15000000)+
+  theme_classic()+
+  theme(
+    plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=7), 
+    axis.text.y = element_text(size=7))
+    #axis.line=element_line(size=2)) 
+SBP_OSGC
+
+ANB_OSGC <- ANB_tidy_Data  %>%
+  ggplot(aes(x=Time, y=Average)) +
+  geom_line(size = 1.5, color = "#FEC000") +
+  labs(y = "PFU/mL", x = "Time (mins)") +
+  geom_point(size = 1.5, color = "#FEC000") +
+  geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE), size = 0.6,  width = 10)+
+  ylim(-400000, 15000000)+
+  theme_classic()+
+    theme(
+    plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=7), 
+    axis.text.y = element_text(size=7))
+   # axis.line=element_line(size=2)) 
+ANB_OSGC
+
+KB_OSGC <- KB_tidy_Data  %>%
+  ggplot(aes(x=Time, y=Average)) +
+  geom_line(size = 1.5, color = "#0420BC") +
+  labs(y = "PFU/mL", x = "Time (mins)") +
+  geom_point(size = 1.5, color = "#0420BC") +
+  geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE), size=0.6, width = 5)+
+  ylim(-400000, 15000000)+
+  theme_classic()+
+    theme(
+    plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=7), 
+    axis.text.y = element_text(size=7)) 
+KB_OSGC
+
+
+png("OSGC_only.png", units="in", width=40, height=15, res=600)
+OSGC <- ggarrange(ANB_OSGC, KB_OSGC, SBP_OSGC, 
+                      labels = c("A", "B", "C"),
+                      font.label = list(size = 40),
+                      ncol = 3, nrow = 1, 
+                      label.x = -0.01,
+                      label.y = 1.001)
+OSGC
+dev.off()
+
+
+```
+
+
+
+```{r Phage Kinetics - Rate of Attachment}
+
+KB_Data_RoA <- read.csv("processed_data_RoA_KB.csv" )
+
+KB_tidy_Data_RoA <- KB_Data_RoA %>%
+  pivot_longer(
+    cols = starts_with("rep"),
+    names_to = "rep",
+    names_prefix = "rep",
+    values_to = "PFU") %>%
+  group_by(Time) %>%
+  summarise(n = length(PFU), Median = median(PFU), Average = mean(PFU), SD = sd(PFU), SE = sd(PFU)/sqrt(length((PFU))))
+
+
+SBP_Data_RoA <- read.csv("Processed_data_RoA_SBP.csv" )
+
+SBP_tidy_Data_RoA <- SBP_Data_RoA %>%
+  pivot_longer(
+    cols = starts_with("rep"),
+    names_to = "rep",
+    names_prefix = "rep",
+    values_to = "PFU") %>%
+  group_by(Time) %>%
+  summarise(n = length(PFU), Median = median(PFU), Average = mean(PFU), SD = sd(PFU), SE = sd(PFU)/sqrt(length((PFU))))
+
+ANB_Data_RoA <- read.csv("processed_data_RoA_ANB.csv" )
+
+ANB_tidy_Data_RoA <- ANB_Data_RoA %>%
+  pivot_longer(
+    cols = starts_with("rep"),
+    names_to = "rep",
+    names_prefix = "rep",
+    values_to = "PFU") %>%
+  group_by(Time) %>%
+  summarise(n = length(PFU), Median = median(PFU), Average = mean(PFU), SD = sd(PFU), SE = sd(PFU)/sqrt(length((PFU))))
+
+
+```
+
+
+```{r}
+
+KB_RoA <- KB_tidy_Data_RoA  %>%
+  ggplot(aes(x=Time, y=Average)) +
+  geom_line(size = 1.5, color = "#0420BC") +
+  labs(y = "% of Free Phage", x = "Time (mins)") +
+  geom_point(size = 1.5, color = "#0420BC") +
+  ggtitle("KB824")+
+  geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE), size=0.6, width = 0.2)+
+  theme_classic()+
+    theme(
+    plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=7), 
+    axis.text.y = element_text(size=7))+
+  ylim(0,140)
+KB_RoA
+
+
+
+SBP_RoA <- SBP_tidy_Data_RoA  %>%
+  ggplot(aes(x=Time, y=Average)) +
+  geom_line(size = 1.5, color = "#B7167E") +
+  labs(y = "% of Free Phage", x = "Time (mins)") +
+  geom_point(size = 1.5, color = "#B7167E") +
+  geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE), size=0.6, width = 0.2)+
+  ggtitle("SBP2ɸ2")+
+  theme_classic()+
+    theme(
+    plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=7), 
+    axis.text.y = element_text(size=7)) +
+  ylim(0, 140)
+SBP_RoA
+
+ANB_RoA <- ANB_tidy_Data_RoA  %>%
+  ggplot(aes(x=Time, y=Average)) +
+  geom_line(size = 1.5, color = "#FEC000") +
+  labs(y = "% of Free Phage", x = "Time (mins)") +
+  geom_point(size = 1.5, color = "#FEC000") +
+  geom_errorbar(aes(ymin=Average-SE, ymax=Average+SE), size=0.6, width = 0.2)+
+  ggtitle("ANB28")+
+  theme_classic()+
+    theme(
+    plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=7), 
+    axis.text.y = element_text(size=7)) +
+  ylim(0, 140)
+ANB_RoA
+
+
+RoA <- ggarrange(ANB_RoA, SBP_RoA, KB_RoA,
+                      labels = c("A", "B", "C"),
+                      ncol = 3, nrow = 1)
+RoA
+
+```
+
+```{r}
+
+png("Kinetics.png", units="in", width=10, height=6, res=600)
+kinetics <- ggarrange(ANB_RoA, KB_RoA,SBP_RoA, ANB_OSGC, KB_OSGC, SBP_OSGC,
+                      labels = c("A", "B", "C", "D", "E", "F"),
+                      ncol = 3, nrow = 2, 
+                      align = "v")
+kinetics
+dev.off()
+
+onlysbp<- ggarrange(SBP_RoA,SBP_OSGC,
+                      labels = c("A", "B"),
+                      ncol = 2, nrow = 1, 
+                      align = "v")
+onlysbp
+```
+
