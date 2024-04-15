@@ -1,0 +1,42 @@
+---
+title: "EOP Table"
+author: "Alisha Monsibais"
+date: '2023-06-20'
+output: html_document
+---
+
+Purpose: This script was written for Manuscript 1: Phage Characterization and Kinetics, specifically to for the EOP table. Raw data is located in the Google drive: https://drive.google.com/drive/u/0/folders/1APkck2_aMHKfToduACA9fzALyfS9vOgY 
+
+updated 6/29/23 - to reflect edits suggested by Sage and Katrine 6/12/23
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load packages}
+library(sjPlot)
+library(tidyverse)
+library(dplyr)
+```
+
+```{r load in data }
+setwd("~/Desktop/Table 2. Efficiency of Plating/")
+EOP <- read.csv(file = "221212_EOP_rawdata.csv")
+EOP <- EOP %>%
+  dplyr::select(Phage, PFU.mL, B28B, B28S, K279a, SM12LS, SM49LS, SM50JS, SM22TB) %>%
+  dplyr::rename(Other = SM22TB)
+
+```
+
+
+
+```{r table, echo=FALSE}
+tab_df(EOP,
+alternate.rows = T, # this colors the rows
+title = "Table 2. Efficiency of Plating for STM Phages on *S. maltophilia* clinical stains",
+footnote = "(-) No Sensitivity to Phage, (+) Few individual plaques, (++) Turbidity throughout the cleared zone, (+++) Lysis with few resistant bacteria colonies, (++++) Complete lysis of bacterial lawn. Other* SM15KA, SM17LS, SM20TB, SM22TB, SM26KA, SM27KA, SM71PII", 
+show.footnote = TRUE,
+file = "EOP_Table2.doc")
+
+```
+

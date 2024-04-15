@@ -1,0 +1,37 @@
+---
+title: "Genomic Information Table"
+author: "Alisha Monsibais"
+date: '2022-3-1'
+output: html_document
+---
+
+Purpose: This script was written for Manuscript 1: Phage Characterization and Kinetics, specifically to for the Genomic Information table. Raw data is located in the Google drive: 
+https://drive.google.com/drive/u/0/folders/1t5uZovewGbYvBpDYVXvTA1CbK3GkQexx
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load packages}
+library(sjPlot)
+library(tidyverse)
+library(dplyr)
+```
+
+```{r load in data }
+setwd("~/Desktop")
+GenomicInfo <- read.csv(file = "230301_GenomicInfo_rawdata.csv")
+```
+
+
+
+```{r table, echo=FALSE}
+tab_df(GenomicInfo,
+alternate.rows = T, # this colors the rows
+title = "Table 1. Genomic Information of STM Phages",
+footnote = "HP = Hypothetical Protein, ORF = Open Reading Frame", 
+show.footnote = TRUE,
+file = "GenomicInfo_Table1.doc")
+
+```
+
