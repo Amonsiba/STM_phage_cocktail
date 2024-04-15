@@ -1,0 +1,339 @@
+---
+title: "Coverage_depth"
+author: "Alisha Monsibais"
+date: '2023-07-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+
+library("ggplot2")
+library(ggpubr)
+```
+
+## Project
+This script was written for coverage depth. Clean reads are mapped to phage contigs to determine the coverage depth of the entire genome. 
+
+```{r data import}
+
+setwd("~/Desktop/Ch1_coverage/")
+
+coverage_data_ANB28_host <- read.delim("nohuman_txt_files/ANB28_S18.depth.txt", header = FALSE)
+coverage_data_KB824_host <- read.delim("nohuman_txt_files/KB824_S17.depth.txt", header = FALSE)
+coverage_data_SBP2.2_host <- read.delim("nohuman_txt_files/SBP2-phage2_S11.depth.txt", header = FALSE)
+
+
+ANB28_host <- ggplot(coverage_data_ANB28_host, aes(x=V2, y=V3))+
+  ggtitle("ANB28") +
+  geom_col(color = "#FEC000") +
+  labs(x = NULL,y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+ANB28_host
+
+
+KB824_host <- ggplot(coverage_data_KB824_host, aes(x=V2, y=V3))+
+  ggtitle("KB824") +
+  geom_col(color = "#0420BC") +
+  labs(x = NULL, y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+KB824_host
+
+SBP2.2_host <- ggplot(coverage_data_SBP2.2_host, aes(x=V2, y=V3))+
+  ggtitle("SBP2Φ2") +
+  geom_col(color = "#B7167E") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP2.2_host
+
+png("Cov.png", units="in", width=7, height=9, res=600)
+cov <- ggarrange(ANB28_host, KB824_host, SBP2.2_host, 
+                      labels = c("A", "B", "C"),
+                      align = c("v"),
+                      font.label = list(size = 10),
+                      ncol = 1, nrow = 3, 
+                      label.x = -0.01,
+                      label.y = 1.001)
+
+cov
+dev.off()
+
+```
+
+
+
+```{r Supp Fig}
+coverage_data_S28_Phage1 <- read.delim("nohuman_txt_files/S28_Phage1_S8.depth.txt", header = FALSE) 
+coverage_data_S28.phage2 <- read.delim("nohuman_txt_files/S28-phage2_S14.depth.txt", header = FALSE) 
+coverage_data_S72 <- read.delim("nohuman_txt_files/S72_S15.depth.txt", header = FALSE) 
+coverage_data_SBP1_S16 <- read.delim("nohuman_txt_files/SBP1_S16.depth.txt", header = FALSE) 
+coverage_data_SBP2.phage1 <- read.delim("nohuman_txt_files/SBP2-phage1_S3.depth.txt", header = FALSE) 
+coverage_data_SBP3.1.phage1 <- read.delim("nohuman_txt_files/SBP3.1-phage1_S1.depth.txt", header = FALSE) 
+coverage_data_SBP3.1.phage2 <- read.delim("nohuman_txt_files/SBP3.1-phage2_S9.depth.txt", header = FALSE) 
+coverage_data_SBP3.1.phage2.1 <- read.delim("nohuman_txt_files/SBP3.1-phage2.1_S10.depth.txt", header = FALSE) 
+coverage_data_SBP3.2.phage1 <- read.delim("nohuman_txt_files/SBP3.2-phage1_S2.depth.txt", header = FALSE) 
+coverage_data_SBP4.phage1 <- read.delim("nohuman_txt_files/SBP4-phage1_S4.depth.txt", header = FALSE) 
+coverage_data_SBP4.phage2 <- read.delim("nohuman_txt_files/SBP4-phage2_S12.depth.txt", header = FALSE) 
+coverage_data_SBP5.phage1 <- read.delim("nohuman_txt_files/SBP5-phage1_S5.depth.txt", header = FALSE) 
+coverage_data_SBP5.phage2 <- read.delim("nohuman_txt_files/SBP5-phage2_S13.depth.txt", header = FALSE) 
+coverage_data_SBP6.phage1 <- read.delim("nohuman_txt_files/SBP6-phage1_S6.depth.txt", header = FALSE) 
+coverage_data_SBP7.phage1 <- read.delim("nohuman_txt_files/SBP7-phage1_S7.depth.txt", header = FALSE) 
+
+```
+
+
+```{r}
+S28_Phage1 <- ggplot(coverage_data_S28_Phage1, aes(x=V2, y=V3))+
+  ggtitle("S28Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+S28_Phage1
+
+S28.phage2 <- ggplot(coverage_data_S28.phage2, aes(x=V2, y=V3))+
+  ggtitle("S28Φ2") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+S28.phage2
+
+S72 <- ggplot(coverage_data_S72, aes(x=V2, y=V3))+
+  ggtitle("S72") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+S72
+
+SBP1_S16 <- ggplot(coverage_data_SBP1_S16, aes(x=V2, y=V3))+
+  ggtitle("SBP1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP1_S16
+
+SBP2.phage1 <- ggplot(coverage_data_SBP2.phage1, aes(x=V2, y=V3))+
+  ggtitle("SBP2Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP2.phage1
+
+SBP3.1.phage1 <- ggplot(coverage_data_SBP3.1.phage1, aes(x=V2, y=V3))+
+  ggtitle("SBP3.1Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP3.1.phage1
+
+SBP3.1.phage2 <- ggplot(coverage_data_SBP3.1.phage2, aes(x=V2, y=V3))+
+  ggtitle("SBP3.1Φ2") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP3.1.phage2
+
+SBP3.1.phage2.1 <- ggplot(coverage_data_SBP3.1.phage2.1, aes(x=V2, y=V3))+
+  ggtitle("SBP3.1Φ2.1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP3.1.phage2.1
+
+SBP3.2.phage1 <- ggplot(coverage_data_SBP3.2.phage1, aes(x=V2, y=V3))+
+  ggtitle("SBP3.2Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP3.2.phage1
+
+SBP4.phage1 <- ggplot(coverage_data_SBP4.phage1, aes(x=V2, y=V3))+
+  ggtitle("SBP4Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP4.phage1
+
+SBP4.phage2 <- ggplot(coverage_data_SBP4.phage2, aes(x=V2, y=V3))+
+  ggtitle("SBP4Φ2") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP4.phage2
+
+SBP5.phage1 <- ggplot(coverage_data_SBP5.phage1, aes(x=V2, y=V3))+
+  ggtitle("SBP5Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP5.phage1
+
+SBP5.phage2 <- ggplot(coverage_data_SBP5.phage2, aes(x=V2, y=V3))+
+  ggtitle("SBP5Φ2") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP5.phage2
+
+SBP6.phage1 <- ggplot(coverage_data_SBP6.phage1, aes(x=V2, y=V3))+
+  ggtitle("SBP6Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP6.phage1
+
+SBP7.phage1 <- ggplot(coverage_data_SBP7.phage1, aes(x=V2, y=V3))+
+  ggtitle("SBP7Φ1") +
+  geom_col(color = "Black") +
+  labs(x="Genomic Position", y ="Reads per Base") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size=13, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"), 
+    axis.text.x = element_text(size=10), 
+    axis.text.y = element_text(size=10))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+SBP7.phage1
+
+
+
+
+png("Cov_Supp_all.png", units="in", width=20, height=9, res=600)
+cov_supp <- ggarrange(ANB28_host, KB824_host, SBP2.2_host, S28_Phage1, S28.phage2, S72, SBP1_S16, SBP2.phage1, SBP3.1.phage1, SBP3.1.phage2, SBP3.1.phage2.1, SBP3.2.phage1, SBP4.phage1, SBP4.phage2, SBP5.phage1, SBP5.phage2, SBP6.phage1, SBP7.phage1,  
+                      labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R"),
+                      align = c("hv"),
+                      font.label = list(size = 10),
+                      ncol = 6, nrow = 3, 
+                      label.x = -0.01,
+                      label.y = 1.001)
+
+cov_supp
+dev.off()
+
+
+```
+
+

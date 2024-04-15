@@ -1,0 +1,115 @@
+---
+title: "VIRIDIC Analysis"
+author: "Alisha Monsibais"
+date: '2023-07-31'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Script Information 
+This script was made to check ANI from anvio - which is based on Stephen's Wandro Script for his enterococcus paper. 
+ANI - Average Nucleotide Identity Percentage 
+- this analysis was done in conjunction with Anvio
+Fasta files were from no_human unicycler assemblies (did not remove host reads), cat'ed together in HPC3 and downloaded. Fasta file was uploaded to the following website: https://rhea.icbm.uni-oldenburg.de/viridic/
+-three things were downloaded - the pdf from their heatmap, the similar matrix and the gene cluster
+
+```{r loading packages}
+library(reshape2)
+library(ggplot2)
+library(viridis)
+library(dplyr)
+```
+
+```{r importing data}
+viridic <- read.delim("VIRIDIC_sim-dist_table.tsv",header = T,sep = '\t')
+```
+
+
+```{r correcting labels}
+vir.corr <- viridic %>%
+  rename("SBP5Φ1" = "SBP5.phage1_S5_Contig1", 
+         "SBP7Φ1" = "SBP7.phage1_S7_Contig1", 
+         "SBP5Φ2" = "SBP5.phage2_S13_Contig1", 
+         "SBP4Φ1" = "SBP4.phage1_S4_Contig1", 
+         "SBP4Φ2" = "SBP4.phage2_S12_Contig1", 
+         "S28Φ1" = "S28_Phage1_S8_Contig1", 
+         "S28Φ2" = "S28.phage2_S14_Contig1", 
+         "SBP2Φ1" = "SBP2.phage1_S3_Contig1", 
+         "SBP2Φ2" = "SBP2.phage2_S11_Contig1", 
+         "SBP6Φ1" = "SBP6.phage1_S6_Contig1", 
+         "SBP3.1Φ1" = "SBP3.1.phage1_S1_Contig1", 
+         "SBP3.1Φ2" = "SBP3.2.phage1_S2_Contig1", 
+         "SBP3.2Φ1" = "SBP3.1.phage2_S9_Contig1", 
+         "SBP3.1Φ2.1" = "SBP3.1.phage2.1_S10_Contig1", 
+         "KB824" = "KB824_S17_Contig1", 
+         "ANB28" = "ANB28_S18_Contig1", 
+         "SBP1" = "SBP1_S16_Contig1", 
+         "S72" = "S72_S15_Contig1") %>%
+  mutate(genome = case_when(
+    genome == "SBP7-phage1_S7_Contig1" ~ "SBP7Φ1",
+    genome == "SBP5-phage1_S5_Contig1" ~ "SBP5Φ1",
+    genome == "SBP5-phage2_S13_Contig1" ~ "SBP5Φ2",
+    genome == "SBP4-phage1_S4_Contig1" ~ "SBP4Φ1",
+    genome == "SBP4-phage2_S12_Contig1" ~ "SBP4Φ2",
+    genome == "S28_Phage1_S8_Contig1" ~ "S28Φ1",
+    genome == "S28-phage2_S14_Contig1" ~ "S28Φ2",
+    genome == "SBP2-phage1_S3_Contig1" ~ "SBP2Φ1",
+    genome == "SBP2-phage2_S11_Contig1" ~ "SBP2Φ2", 
+    genome == "SBP6-phage1_S6_Contig1" ~ "SBP6Φ1",
+    genome == "SBP3.1-phage1_S1_Contig1" ~ "SBP3.1Φ1",
+    genome == "SBP3.2-phage1_S2_Contig1" ~ "SBP3.1Φ2",
+    genome == "SBP3.1-phage2_S9_Contig1" ~ "SBP3.2Φ1",
+    genome == "SBP3.1-phage2.1_S10_Contig1" ~ "SBP3.1Φ2.1",
+    genome == "KB824_S17_Contig1" ~"KB824", 
+    genome == "ANB28_S18_Contig1" ~ "ANB28", 
+    genome == "SBP1_S16_Contig1" ~ "SBP1", 
+    genome == "S72_S15_Contig1" ~ "S72", 
+    TRUE ~ as.character(genome)))
+```
+
+
+```{r data cleaning}
+vir.melt <- melt(vir.corr, id.vars = "genome")
+rownames(vir.corr) <- vir.corr[,1]
+clusters <- hclust(dist(vir.corr[,-1]))
+clusters_2 <- hclust(dist(t(vir.corr[,-1])))
+clusters.order <- clusters_2$labels[clusters_2$order]
+
+#Order for re-organize data
+cat(clusters.order)
+
+```
+
+
+```{r fix names and order for clustering}
+vir.melt$variable <- factor(vir.melt$variable, ordered=T, levels= clusters.order, 
+                            labels= c("SBP5Φ1" ,"S28Φ1", "S28Φ2", "KB824" ,"SBP1", "SBP2Φ1", "SBP6Φ1", "SBP4Φ1", "SBP7Φ1", "SBP3.1Φ1", "SBP3.1Φ2", "ANB28", "SBP4Φ2", "SBP5Φ2", "SBP2Φ2", "S72", "SBP3.1Φ2.1", "SBP3.2Φ1"))
+vir.melt$genome <- factor(vir.melt$genome, ordered=T, levels= clusters.order, 
+                       labels= c("SBP5Φ1" ,"S28Φ1", "S28Φ2", "KB824" ,"SBP1", "SBP2Φ1", "SBP6Φ1", "SBP4Φ1", "SBP7Φ1", "SBP3.1Φ1", "SBP3.1Φ2", "ANB28", "SBP4Φ2", "SBP5Φ2", "SBP2Φ2", "S72", "SBP3.1Φ2.1", "SBP3.2Φ1"))
+
+```
+
+
+```{r ploting ANI heatmap}
+png("VIRDIC_heatmap.png", units="in", width=12, height=6, res=1200)
+ggplot(data = vir.melt) +
+  theme_minimal()+
+  geom_tile(aes(x=genome, y=variable, fill=value), color="black") +
+  labs(fill="", x='',y='') +
+  geom_text(aes(x=genome, y=variable, label = round(value, digits = 2))) +
+  scale_fill_gradientn(colors = c("#ffffb2", '#00d400','#00a300','#004100'),  breaks= c(70,9,95,100),labels=c("70 %", "90 %","95 %","100 %"), limits=c(70,100),
+                       na.value = "white") +
+  theme(axis.text = element_text(size=15, color="black"),
+    axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
+    legend.text = element_text(size=10),
+    legend.key.size = unit(x = 10, units = "mm"))
+dev.off()
+
+```
+
+ 
+
