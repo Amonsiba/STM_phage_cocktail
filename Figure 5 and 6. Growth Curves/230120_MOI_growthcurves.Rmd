@@ -1,5 +1,5 @@
 ---
-title: "MOI for B28B"
+title: "MOI for B28B - Manuscript 1 - Figure 5 and 6"
 author: "Alisha Monsibais"
 date: '2023-01-20'
 output: html_document
@@ -14,7 +14,7 @@ knitr::opts_chunk$set(
 ```
 
 # Project Summary 
-B28B was grown to log phage OD600 of 0.1 and subjected to phage infection of ANB28, SBP2@2, KB824, two phage and three phage cocktails and the following MOIs 0.001, 1, 10. Bacteria and phage lysates were aliqoute in a 96 well plate and read in the Aligent LogPhase 600. Plates used? 
+B28B was grown to log phage OD600 of 0.1 and subjected to phage infection of ANB28, SBP2@2, KB824, two phage and three phage cocktails and the following MOIs 0.001, 1, 10. Bacteria and phage lysates were aliqoute in a 96 well plate and read in the Aligent LogPhase 600. 
 
 ## 1. Exploratory Data Analysis 
 ```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
@@ -30,11 +30,10 @@ library(lmerTest)
 library(sjPlot)
 library(rstatix) #pipefriendly stats 
 library(emmeans)
+library(report) 
 ```
 
 ```{r loading in data}
-#Set Wd
-setwd("~/Desktop/Chapter 1_ Kinetics and Characterization/Raw Data for Figures_231208/Figure 5. MOI Growth Curves/Raw_data/")
 Curve1 <- read.csv("../Raw_data/230120_MOI_0.001_1_10_B28B_rep1.csv")
 Curve2 <- read.csv("../Raw_data/230120_MOI_0.001_1_10_B28B_rep2.csv")
 Curve3 <- read.csv("../Raw_data/230120_MOI_0.001_1_10_B28B_rep3.csv")
@@ -114,7 +113,7 @@ C4_melt$OD600 <- as.numeric(as.character(C4_melt$OD600)) #changes OD to numeric
 ```
 
 ```{r annotating data from plate map, message=FALSE, warning=FALSE, include=FALSE}
-
+#annotated data with plate map information 
 Cannotated1 <- inner_join(C1_melt, platemap, by='Well')
 Cannotated2 <- inner_join(C2_melt, platemap, by='Well')
 Cannotated3 <- inner_join(C3_melt, platemap, by='Well')
@@ -184,12 +183,14 @@ C4 <- ggplot(Cannotated4, aes(x=Time, y=OD600, color = Condition, linetype = MOI
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 C4
 
+
+png('Figures/96Well_Overview.png', units="in", width=10, height=5, res=600)
 Plate_96 <- ggarrange(C1, C2, C3, C4,
                       labels = c("A", "B", "C", "D"),
                       #ncol = 1, nrow = 4, 
                       common.legend = TRUE, legend = "right")
 Plate_96
-
+dev.off()
 
 
 ```
@@ -208,8 +209,8 @@ Ca4 <- Cannotated4 %>%
   mutate(rep = 4)
 
 #Combining MTC data
-Data_all <- rbind(Ca2, Ca3, Ca4) #need to find the correct way of doing this
-#only incorporated 3 plates 
+Data_all <- rbind(Ca2, Ca3, Ca4)
+#only incorporated 3 plates - plate 1 had issue with growth 
 
 #Need to pull BG, B28B and KB824
 KB_subsetted <- Data_all %>%
@@ -254,27 +255,38 @@ sC3_subsetted <- summarise(gC3_subsetted, N=length(OD600), Average=mean(OD600), 
 ## Plot Combind Data 
 
 ```{r plotting}
-KB <- ggplot(sKB_subsetted, aes(x=Time, y=Average, color = MOI))+
-  geom_ribbon(aes(ymin=Average-StDev, ymax = Average+StDev), fill = "#e3e3e3", linetype=0)+
-  geom_line(size = 1.5) +
-  scale_color_manual(values = c("mediumpurple1", "purple1", "purple4", "black", "gray30")) +
-  labs(x="Time(Hours)\n", y ="OD600nm") +
-  ggtitle("KB824")+
-  theme_classic()+
-  theme(
-    plot.title = element_text(size=18, hjust = 0.5, face="bold"),
-    axis.title.x = element_text(size=10, face="bold"),
-    axis.title.y = element_text(size=10, face="bold"), 
-    axis.text.x = element_text(size=8), 
-    axis.text.y = element_text(size=8)) +
-  xlim(1,48) + ylim(0,1.75)
-KB
+# Define the desired order of MOI levels
+moi_order <- c("Bacteria","0.001", "1", "10", "Blank")
 
+# Convert MOI to a factor with the specified order
+sKB_subsetted$MOI <- factor(sKB_subsetted$MOI, levels = moi_order)
+sSBP_subsetted$MOI <- factor(sSBP_subsetted$MOI, levels = moi_order)
+sANB_subsetted$MOI <- factor(sANB_subsetted$MOI, levels = moi_order)
+sC3_subsetted$MOI <- factor(sC3_subsetted$MOI, levels = moi_order)
+
+
+KB <- ggplot(sKB_subsetted, aes(x = Time, y = Average, color = MOI)) +
+  geom_ribbon(aes(ymin = Average - StDev, ymax = Average + StDev), fill = "#e3e3e3", linetype = 0) +
+  geom_line(size = 1.5) +
+  scale_color_manual(values = c("black","mediumpurple1", "purple1", "purple4", "gray30")) +
+  labs(x = "Time (Hours)\n", y = "MOI") +  # Update the y-axis label to reflect the reordering
+  ggtitle("KB824") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+    axis.title.x = element_text(size = 10, face = "bold"),
+    axis.title.y = element_text(size = 10, face = "bold"),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8)
+  ) +
+  xlim(1, 48) + ylim(0, 1.75)
+
+KB
 
 ANB <- ggplot(sANB_subsetted, aes(x=Time, y=Average, color = MOI))+
   geom_ribbon(aes(ymin=Average-StDev, ymax = Average+StDev), fill = "#e3e3e3", linetype=0)+
   geom_line(size = 1.5) +
-  scale_color_manual(values = c("mediumpurple1", "purple1", "purple4", "black", "gray30")) +
+  scale_color_manual(values = c("black","mediumpurple1", "purple1", "purple4", "gray30")) +
   labs(x="Time(Hours)\n", y ="OD600nm") +
   theme_classic()+
   ggtitle("ANB28")+
@@ -291,7 +303,7 @@ ANB
 SBP <- ggplot(sSBP_subsetted, aes(x=Time, y=Average, color = MOI))+
   geom_ribbon(aes(ymin=Average-StDev, ymax = Average+StDev), fill = "#e3e3e3", linetype=0)+
   geom_line(size = 1.5) +
-  scale_color_manual(values = c("mediumpurple1", "purple1", "purple4", "black", "gray30")) +
+  scale_color_manual(values = c("black","mediumpurple1", "purple1", "purple4", "gray30")) +
   labs(x="Time(Hours)\n", y ="OD600nm") +
   ggtitle("SBP2ɸ2")+
   theme_classic()+
@@ -308,8 +320,8 @@ C3 <- ggplot(sC3_subsetted, aes(x=Time, y=Average, color = MOI))+
   ggtitle("MOI gradient of Cocktail") +
   geom_ribbon(aes(ymin=Average-StDev, ymax = Average+StDev), fill = "#e3e3e3", linetype=0)+
   geom_line(size = 1.5) +
-  ggtitle("Cocktail - Three Phage") +
-  scale_color_manual(values = c("mediumpurple1", "purple1", "purple4", "black", "gray30")) +
+  ggtitle("Three-Phage Cocktail") +
+  scale_color_manual(values = c("black","mediumpurple1", "purple1", "purple4", "gray30")) +
   labs(x="Time(Hours)\n", y ="OD600nm") +
   theme_classic()+
   theme(
@@ -326,10 +338,11 @@ C3
 ```{r Statistical Analysis}
 # Selecting only the first 48 hours 
 
-#Groups data to include an avereage "blank" column
+#Groups data to include an average "blank" column
+#First part select the first 48 hour and the second part calculated blank
 C1_48 <- Curve1 %>% 
   mutate(Time = round(Time, 1)) %>%
-  filter(between(Time,0.0,72.0))
+  filter(between(Time,0.0,48.0))
   
 C1_blank <- C1_48 %>%
   dplyr::select(Time, B2, C2, D2) %>% 
@@ -339,10 +352,9 @@ C1_blank <- C1_48 %>%
   dplyr::select(blank) %>%
   bind_cols(C1_48,.)
 
-#Groups data to include an avereage "blank" column
 C2_48 <- Curve2 %>% 
   mutate(Time = round(Time, 1)) %>%
-  filter(between(Time,0.0,72.0))
+  filter(between(Time,0.0,48.0))
   
 C2_blank <- C2_48 %>%
   dplyr::select(Time, B2, C2, D2) %>% 
@@ -352,10 +364,9 @@ C2_blank <- C2_48 %>%
   dplyr::select(blank) %>%
   bind_cols(C2_48,.)
 
-#Groups data to include an avereage "blank" column
 C3_48 <- Curve3 %>% 
   mutate(Time = round(Time, 1)) %>%
-  filter(between(Time,0.0,72.0))
+  filter(between(Time,0.0,48.0))
   
 C3_blank <- C3_48 %>%
   dplyr::select(Time, B2, C2, D2) %>% 
@@ -365,10 +376,9 @@ C3_blank <- C3_48 %>%
   dplyr::select(blank) %>%
   bind_cols(C3_48,.)
 
-#Groups data to include an avereage "blank" column
 C4_48 <- Curve4 %>% 
   mutate(Time = round(Time, 1)) %>%
-  filter(between(Time,0.0,72.0))
+  filter(between(Time,0.0,48.0))
   
 C4_blank <- C4_48 %>%
   dplyr::select(Time, B2, C2, D2) %>% 
@@ -421,34 +431,36 @@ C1_sum <- C1_GC %>%
   dplyr::rename(Well = sample)%>%
   right_join(platemap, ., by = "Well") %>%
   filter(Condition %in% c("B28B", "ANB28", "KB824", "SBP2@2", "3Cocktail")) %>%
-  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma) %>%
+  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma, note) %>%
   mutate(rep = 1)
 
 C2_sum <- C2_GC %>%
   dplyr::rename(Well = sample)%>%
   right_join(platemap, ., by = "Well") %>%
   filter(Condition %in% c("B28B", "ANB28", "KB824", "SBP2@2", "3Cocktail")) %>%
-  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma) %>%
+  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma, note) %>%
   mutate(rep = 2)
 
 C3_sum <- C3_GC %>%
   dplyr::rename(Well = sample) %>%
   right_join(platemap, ., by = "Well") %>%
   filter(Condition %in% c("B28B", "ANB28", "KB824", "SBP2@2", "3Cocktail")) %>%
-  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma) %>%
+  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma, note) %>%
   mutate(rep = 3)
 
 C4_sum <- C4_GC %>%
   dplyr::rename(Well = sample) %>%
   right_join(platemap, ., by = "Well") %>%
   filter(Condition %in% c("B28B", "ANB28", "KB824", "SBP2@2", "3Cocktail")) %>%
-  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma) %>%
+  dplyr::select(Well, Condition, MOI, auc_l, auc_e, sigma, note) %>%
   mutate(rep = 4) 
 
 #Combinds all the data 
 AUC_Tables <- C2_sum %>%
   union_all(C3_sum) %>%
   union_all(C4_sum) 
+
+#Only plates 2, 3, 4 - plate 1 did not pass QC 
 
 ```
 
@@ -490,7 +502,7 @@ kable(Summarystats)
 ggplot(data = AUC_Tables) + 
   aes(x = MOI, y = auc_l) + 
   geom_boxplot() + geom_point()
-#Outlier check - no outliers noted (1 out line from a control - will remove repeat for publication analysis)
+#Outlier check - no outliers noted 
 ```
 
 ##### Normality Test of AUC of one Condition
@@ -512,7 +524,6 @@ qqline(ANBonly$auc_l)
 model <- aov(auc_l ~ MOI, data = AUC_Tables)
 plot(model, 1)
 
-#Homogeneity is met - data is evenly distributed around the mean 
 ```
 
 
@@ -534,22 +545,23 @@ C3only <- AUC_Tables %>%
 #ANOVA with lm function 
 anb.lm <- lm(auc_l ~ MOI, data = ANBonly)
 anb.av <- aov(anb.lm)
-anova(anb.av) %>% knitr::kable()
+anb_anova_table <- anova(anb.av)
+write.csv(anb_anova_table, file = "Stats_table/anb_anova_table.csv")
 
 kb.lm <- lm(auc_l ~ MOI, data = KBonly)
 kb.av <- aov(kb.lm)
-anova(kb.av) %>% knitr::kable()
-library("report") 
-report(kb.av)
+kb_anova_table <- anova(kb.av)
+write.csv(kb_anova_table, file = "Stats_table/kb_anova_table.csv")
 
 sbp.lm <- lm(auc_l ~ MOI, data = SBPonly)
 sbp.av <- aov(sbp.lm)
-anova(sbp.av) %>% knitr::kable()
-report(sbp.av)
+sbp_anova_table <- anova(sbp.av)
+write.csv(sbp_anova_table, file = "Stats_table/sbp_anova_table.csv")
 
 c3.lm <- lm(auc_l ~ MOI, data = C3only)
 c3.av <- aov(c3.lm)
-anova(c3.av) %>% knitr::kable()
+c3_anova_table <- anova(c3.av)
+write.csv(c3_anova_table, file = "Stats_table/c3_anova_table.csv")
 
 ```
 ##### Table 3. Post Hoc Test 
@@ -557,15 +569,23 @@ anova(c3.av) %>% knitr::kable()
 #Follow-up Tukey Test 
 anb.posthoc <- TukeyHSD(anb.av)
 tidy(anb.posthoc) %>% knitr::kable()
+anb_HSD_table <- tidy(anb.posthoc)
+write.csv(anb_HSD_table, file = "Stats_table/anb_HSD_table.csv")
 
 kb.posthoc <- TukeyHSD(kb.av)
 tidy(kb.posthoc) %>% knitr::kable()
+kb_HSD_table <- tidy(kb.posthoc)
+write.csv(kb_HSD_table, file = "Stats_table/kb_HSD_table.csv")
 
 sbp.posthoc <- TukeyHSD(sbp.av)
 tidy(sbp.posthoc) %>% knitr::kable()
+sbp_HSD_table <- tidy(sbp.posthoc)
+write.csv(sbp_HSD_table, file = "Stats_table/sbp_HSD_table.csv")
 
 c3.posthoc <- TukeyHSD(c3.av)
 tidy(c3.posthoc) %>% knitr::kable()
+c3_HSD_table <- tidy(c3.posthoc)
+write.csv(c3_HSD_table, file = "Stats_table/c3_HSD_table.csv")
 
 ```
 
@@ -585,8 +605,7 @@ anb_anova <- ANBonly  %>%
     axis.text.y = element_text(size=8), 
     legend.position = "none") +
   stat_compare_means(method = "anova", label.y = 0) +
-  scale_fill_manual(values = c("mediumpurple1", "purple1", "purple4", "black")) +
-  ylim(0,100)
+  scale_fill_manual(values = c("mediumpurple1", "purple1", "purple4", "black")) 
 anb_anova
 
 sbp_anova <- SBPonly  %>%
@@ -602,8 +621,7 @@ sbp_anova <- SBPonly  %>%
     axis.text.x = element_text(size=8), 
     axis.text.y = element_text(size=8)) +
   stat_compare_means(method = "anova", label.y = 0) +
-    scale_fill_manual(values = c("mediumpurple1", "purple1", "purple4", "black")) +
-    ylim(0,100)
+    scale_fill_manual(values = c("mediumpurple1", "purple1", "purple4", "black"))
 sbp_anova
 
 kb_anova <- KBonly  %>%
@@ -619,8 +637,7 @@ kb_anova <- KBonly  %>%
     axis.text.x = element_text(size=8), 
     axis.text.y = element_text(size=8)) +
   stat_compare_means(method = "anova", label.y = 0) +
-    scale_fill_manual(values = c("mediumpurple1", "purple1", "purple4", "black")) +
-    ylim(0,100)
+    scale_fill_manual(values = c("mediumpurple1", "purple1", "purple4", "black")) 
 kb_anova
 
 c3_anova <- C3only  %>%
@@ -644,12 +661,12 @@ c3_anova
 
 
 ```{r}
-png("../Figures/MOIs_2.png", units="in", width=10, height=6, res=600)
-s2 <- ggarrange(ANB,KB, SBP, anb_anova, kb_anova, sbp_anova,
+png("Figures/MOI_growth_curves.png", units="in", width=10, height=6, res=600)
+MOI_growthcurve <- ggarrange(ANB,KB, SBP, anb_anova, kb_anova, sbp_anova,
                       labels = c("A", "B", "C", "D", "E", "F"),
                       common.legend = TRUE, legend = "bottom", 
                       align = "h") 
-s2
+MOI_growthcurve
 dev.off()
 ```
 
@@ -662,6 +679,7 @@ MOI_1_auc <- AUC_Tables %>%
   mutate(Input = case_when(
   Input == "3Cocktail" ~ "Cocktail",
   Input == "SBP2@2" ~ "SBP2Φ2", 
+  Input == "B28B" ~ "Bacteria", 
   TRUE ~ as.character(Input)))
   
 
@@ -669,10 +687,14 @@ MOI_1_auc <- AUC_Tables %>%
 moi1.lm <- lm(auc_l ~ Input, data = MOI_1_auc)
 moi1.av <- aov(moi1.lm)
 anova(moi1.av) %>% knitr::kable()
+moi1_anova_table <- anova(moi1.av)
+write.csv(moi1_anova_table, file = "Stats_table/moi1_anova_table.csv")
 
 #running posthoc test
 moi1.posthoc <- TukeyHSD(moi1.av)
 tidy(moi1.posthoc) %>% knitr::kable()
+moi1_HSD_table <- tidy(moi1.posthoc)
+write.csv(moi1_HSD_table, file = "Stats_table/moi1_HSD_table.csv")
 
 #Need to pullBG, B28B and KB824
 MOI_1 <- Data_all %>%
@@ -683,6 +705,7 @@ MOI_1 <- Data_all %>%
   mutate(Input = case_when(
   Input == "3Cocktail" ~ "Cocktail",
   Input == "SBP2@2" ~ "SBP2Φ2", 
+  Input == "B28B" ~ "Bacteria", 
   TRUE ~ as.character(Input)))
 
 gMOI_1 <- group_by(MOI_1, Time, Input)
@@ -691,11 +714,15 @@ gMOI_1 <- group_by(MOI_1, Time, Input)
 sMOI_1 <- summarise(gMOI_1, N=length(OD600), Average=mean(OD600), StDev = sd(OD600))
 
 
+# Reorder the levels of the 'Sample' variable
+sMOI_1$Input <- factor(sMOI_1$Input, levels = c("Bacteria", "ANB28", "KB824", "SBP2Φ2", "Cocktail"))
+
+
 #growth curve
 moi1_gc <- ggplot(sMOI_1, aes(x=Time, y=Average, color = Input))+
   geom_ribbon(aes(ymin=Average-StDev, ymax = Average+StDev), fill = "#e3e3e3", linetype=0)+
   geom_line(size = 1.5) +
-  scale_color_manual(values = c("#FEC000", "black","#EF2402" , "#0420BC", "#B7167E")) +
+  scale_color_manual(values = c("black", "#FEC000", "#0420BC", "#B7167E", "#EF2402")) +
   labs(x="Time(Hours)", y ="OD600nm") +
   theme_classic()+
   theme(
@@ -710,9 +737,12 @@ moi1_gc <- ggplot(sMOI_1, aes(x=Time, y=Average, color = Input))+
   xlim(1, 48) 
 moi1_gc
 
+# Reorder the levels of the 'Sample' variable
+MOI_1_auc$Input <- factor(MOI_1_auc$Input, levels = c("Bacteria", "ANB28", "KB824", "SBP2Φ2", "Cocktail"))
+
 
 moi1_anova_graph <- MOI_1_auc%>%
-  ggplot(aes(x=factor(Input, level=c("B28B", "ANB28", "KB824", "SBP2Φ2", "Cocktail")), y=auc_l, fill = Input)) + 
+  ggplot(aes(x=factor(Input, level=c("Bacteria", "ANB28", "KB824", "SBP2Φ2", "Cocktail")), y=auc_l, fill = Input)) + 
   geom_violin() +
   geom_jitter() +
   labs(y = "AUC", x = "MOI") +
@@ -727,17 +757,20 @@ moi1_anova_graph <- MOI_1_auc%>%
         legend.title = element_text(size=15), #change legend title font size
         legend.text = element_text(size=13))+ #change legend text font size) +
   stat_compare_means(method = "anova", label.y = 0) +
-  scale_fill_manual(values = c("#FEC000", "black","#EF2402" , "#0420BC", "#B7167E"))
+  scale_fill_manual(values = c("black", "#FEC000" , "#0420BC", "#B7167E", "#EF2402"))
 moi1_anova_graph
 
 ```
 
 ```{r}
-figure2 <- ggarrange(moi1_gc, moi1_anova_graph, 
+Cocktailfigure <- ggarrange(moi1_gc, moi1_anova_graph, 
                      labels = c("A", "B"),
                      common.legend = TRUE, legend = "bottom", 
                      align = "h", 
                      font.label = list(size = 18, face = "bold")) 
-figure2
+
+png('Figures/Cocktail.png', units="in", width=10, height=5, res=600)
+Cocktailfigure
+dev.off()
 ```
 
