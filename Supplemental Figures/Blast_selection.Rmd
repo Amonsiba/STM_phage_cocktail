@@ -1,0 +1,72 @@
+---
+title: "Blast"
+author: "Alisha Monsibais"
+date: '2023-08-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(dplyr)
+```
+
+## Script Information 
+This script is for combining blast analysis on all phages. The three groups are (1) ANB28, (2) Siphoviruses, and (3) Podoviruses. 
+
+
+```{r Sipho Community}
+
+S72 <- read.csv("Sipho/S72.csv", nrows =4)
+SBP2_2 <- read.csv("Sipho/SBP2_2.csv", nrow = 4)
+SBP3.1_2.1 <- read.csv("Sipho/SBP3.1_2.1.csv", nrow = 4)
+SBP3.1_2 <- read.csv("Sipho/SBP3.1_2.csv", nrow = 4)
+SBP4_2 <- read.csv("Sipho/SBP4_2.csv", nrow = 4)
+SBP5_2 <- read.csv("Sipho/SBP5_2.csv", nrow = 4)
+
+sipho <- S72 %>%
+  union(SBP2_2) %>%
+  union(SBP3.1_2) %>%
+  union(SBP3.1_2.1) %>%
+  union(SBP4_2) %>%
+  union(SBP5_2) %>%
+  distinct(Description, Acc..Len)
+
+write.csv(sipho, file="sipho_selected.csv")
+
+```
+
+
+```{r Podo Community}
+
+KB824 <- read.csv("Podo/KB824.csv", nrow=4)
+S28_1 <- read.csv("Podo/S28_1.csv", nrow=4)
+S28_2 <- read.csv("Podo/S28_2.csv", nrow=4)
+SBP1 <- read.csv("Podo/SBP1.csv", nrow=4)
+SBP2_1 <- read.csv("Podo/SBP2_1.csv", nrow=4)
+SBP3.1_1 <- read.csv("Podo/SBP3.1_1.csv", nrow=4)
+SBP3.2_1 <- read.csv("Podo/SBP3.2_1.csv", nrow=4)
+SBP4_1 <- read.csv("Podo/SBP4_1.csv", nrow=4)
+SBP5_1 <- read.csv("Podo/SBP5_1.csv", nrow=4)
+SBP6_1 <- read.csv("Podo/SBP6_1.csv", nrow=4)
+SBP7_1 <- read.csv("Podo/SBP7_1.csv", nrow=4)
+
+podo <- KB824 %>%
+  union(S28_1) %>%
+  union(S28_2) %>%
+  union(SBP1) %>%
+  union(SBP2_1) %>%
+  union(SBP3.1_1) %>%
+  union(SBP3.2_1) %>%
+  union(SBP4_1) %>%
+  union(SBP5_1) %>%
+  union(SBP6_1) %>%
+  union(SBP7_1) %>%
+  distinct(Description, Acc..Len)
+
+write.csv(podo, file="podo_selected.csv")
+
+
+```
+
