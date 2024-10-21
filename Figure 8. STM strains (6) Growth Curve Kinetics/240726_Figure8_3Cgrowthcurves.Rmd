@@ -1,0 +1,87 @@
+---
+title:  " Manuscript 1 - Figure 8"
+author: "Alisha Monsibais"
+date: '2023-01-20'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# Project Summary 
+This is to explore the growth curves from supp fig 7 of manuscript 1 - Characterization of a three phage cocktail. 
+
+## 1. Exploratory Data Analysis 
+```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
+library(knitr) #nice table output 
+library(tidyverse)
+library(reshape2) #helps melt data - data wrangling 
+library(ggpubr)
+library(growthcurver) #growth curve package 
+library(ggbreak) #ggarrange 
+library(broom)
+library(dplyr)
+library(lmerTest)
+library(sjPlot)
+library(rstatix) #pipefriendly stats 
+library(emmeans)
+library(report) 
+```
+
+```{r loading in data}
+#Selected data with the six strains of interest
+Set1 <- read.csv("../240726_SuppFig5_clean_Set1.csv")
+Set2 <- read.csv("../240726_SuppFig5_clean_Set2.csv")
+Set3 <- read.csv("../240726_SuppFig5_clean_Set3.csv")
+# was previously suppfig 5 but know is supp figure 7
+Selected_data <- Set1 %>%
+  union_all(Set2) %>%
+  union_all(Set3)
+
+
+```
+
+
+```{r}
+
+Data <- Selected_data %>%
+  group_by(Phage, Strain, Time)%>%
+  summarise(N=length(OD600), Average=mean(OD600), StDev = sd(OD600))
+
+# Reorder the levels of the 'Sample' variable
+Data$Phage <- factor(Data$Phage, levels = c("Bacteria", "ANB28", "KB824", "SBP2Φ2", "Cocktail"))
+
+#growth curve
+SuppFig5 <- ggplot(Data, aes(x=Time, y=Average, color = Phage)) +
+  geom_ribbon(aes(ymin=Average-StDev, ymax = Average+StDev), fill = "#e3e3e3", linetype=0) +
+  geom_line(size = 1.5) +
+  scale_color_manual(values = c("black", "#FEC000", "#0420BC", "#B7167E", "#EF2402")) +
+  labs(x="Time (Hours)", y="OD600nm", color = "Input") +
+  theme_linedraw() +
+  theme(
+    plot.title = element_text(size=20, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=20, face="bold"),
+    axis.title.y = element_text(size=20, face="bold"), 
+    axis.text.x = element_text(size=15), 
+    axis.text.y = element_text(size=15), 
+    legend.key.size = unit(1, 'cm'), # Change legend key size
+    legend.title = element_text(size=15), # Change legend title font size
+    legend.text = element_text(size=15), # Change legend text font size
+    strip.text = element_text(size=15, face="bold") # Change facet strip text font size
+  ) +
+  facet_wrap(~Strain)
+
+
+png("../Figures/Figure8_sixstrains.png", units="in", width=10, height=6, res=1200)
+SuppFig5
+dev.off()
+
+```
+
+
+
