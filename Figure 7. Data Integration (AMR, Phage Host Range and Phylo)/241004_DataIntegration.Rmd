@@ -1,0 +1,324 @@
+---
+title: "Host Range Analysis - Set 3"
+author: "Alisha Monsibais"
+date: '2023-08-04'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(root.dir = "~/Desktop/230718_Host", 
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# Project Summary 
+STM strains (16) were grown to log phage OD600 of 0.1 and subjected to phage infection of ANB28, SBP2@2, KB824, and three phage cocktails at the following MOIs 0.001. Bacteria and phage lysates were aliqoute in a 96 well plate and read in the Aligent LogPhase 600 for 72 hours, at 37C, no shaking, 10 minute intervals
+
+## 1. Data Cleaning and Quality Control Check 
+```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
+
+library(tidyverse)
+library(ggplot2)
+library(forcats)
+library(patchwork)
+
+theme_blank <- function(...) {
+  ret <- theme_bw(...)
+  ret$line <- element_blank()
+  ret$rect <- element_blank()
+  ret$strip.text <- element_blank()
+  ret$axis.text <- element_blank()
+  ret$plot.title <- element_blank()
+  ret$axis.title <- element_blank()
+  ret$plot.margin <- structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit")
+  ret
+}
+
+```
+
+##Combining Data - This should be in the last R script for data wrangling of Lytic Profiles
+
+```{r}
+
+#previous data from set 1
+Set1and2.12 <- read.csv("../Intermediate_files/All_cleanauc.12.csv")
+Set1and2.20 <- read.csv('../Intermediate_files/All_cleanauc.20.csv')
+Set1and2.40 <- read.csv('../Intermediate_files/All_cleanauc.40.csv')
+
+Combined_12 <-  Set1and2.12 %>%
+  union_all(Set3.12)
+
+Combined_20 <-  Set1and2.20 %>%
+  union_all(Set3.20)
+
+Combined_40 <-  Set1and2.40 %>%
+  union_all(Set3.40)
+```
+
+```{r Pulling Averages of AUC by phage input}
+
+Hour12_df <- Combined_12 %>%
+  group_by(Phage) %>%
+  summarise(growthpercent = mean(growthpercent)) %>%
+   mutate(growthpercent  = round(growthpercent, 1))
+
+Hour20_df <- Combined_20 %>%
+  group_by(Phage) %>%
+  summarise(growthpercent = mean(growthpercent)) %>%
+   mutate(growthpercent  = round(growthpercent, 1))
+
+Hour40_df <- Combined_40 %>%
+  group_by(Phage) %>%
+  summarise(growthpercent = mean(growthpercent)) %>%
+   mutate(growthpercent  = round(growthpercent, 1))
+
+
+```
+
+
+```{r merging data frames :()}
+
+
+Combined_12 <-  Combined_12 %>%
+  mutate(Timepoint = "12 Hours")
+
+Combined_20 <-  Combined_20 %>%
+  mutate(Timepoint = "20 Hours")
+
+Combined_40 <-  Combined_40 %>%
+  mutate(Timepoint = "40 Hours")
+
+Combined_all <-  Combined_40 %>%
+  union_all(Combined_20) %>%
+  union_all(Combined_12)
+
+write.table(Combined_all, file = "Combined_all.txt", sep = "\t")
+```
+
+
+#This is the start of data integration of Lytic Profiles, AMR Profiles and Phylogenetics Tree of 46 different STM strains
+
+```{r}
+#Reads in df for Lytic Heatmap 
+Lytic_Profile <- read.table("Combined_all.txt", sep = "\t", header = TRUE)
+
+#Reads in AMR Profile 
+amr_data <- read.csv("241004_AMR_Profile.csv")
+
+amr_data <- amr_data %>%
+  mutate(AMR_Profile = factor(AMR_Profile, levels = c("No", "MDR", "XDR", "PDR")))  # Set the order
+
+```
+
+```{r Merge Data}
+# Merge AMR metadata with your existing data
+Combined_all <- Lytic_Profile %>%
+  left_join(amr_data, by = "Strain")
+
+```
+
+
+```{r}
+# Define a color scale for AMR profiles
+amr_colors <- c("MDR" = "lightsalmon", "XDR" = "maroon", "PDR" = "purple4", "No " = "azure3")
+
+```
+
+
+
+```{r}
+
+# Filter and mutate the data for the "Cocktail" condition to get strain_order
+strain_order_cocktail <- Combined_all %>% 
+  filter(Timepoint == "20 Hours" & Phage == "Cocktail") %>%
+  arrange(growthpercent) %>%
+  pull(Strain)
+
+# Ensure strain_order_cocktail is unique
+strain_order_cocktail <- unique(strain_order_cocktail)
+
+
+hour20 <- Combined_all %>% 
+  filter(Timepoint == "20 Hours") %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria"),
+  Strain = factor(Strain, levels = strain_order_cocktail)) %>%
+  ggplot(aes(name, Strain, fill= growthpercent)) + 
+  theme_minimal() + 
+  geom_tile(color="black", size = 0.25) +
+  ggtitle("AUC at 20 Hours") + 
+  labs(fill = 'Growth %') + 
+  ylab(NULL) + 
+  xlab(NULL) +
+  scale_fill_gradient2(low="white", high="#EF2402", limits = c(0, 125)) + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 12, face = "bold"), 
+        axis.title.y = element_text(color = "black", size = 12, face = "bold"), 
+        strip.text = element_text(size = 12, face = "bold"))  
+
+hour20
+
+```
+
+
+```{r}
+
+
+# 1. Create the AMR profile heatmap on the left
+amr_plot <- Combined_all %>%
+  filter(Timepoint == "20 Hours") %>%
+  mutate(Strain = factor(Strain, levels = strain_order_cocktail)) %>%
+  ggplot(aes(x = 1, y = Strain, fill = AMR_Profile)) + 
+  geom_tile(color = "black", size = 0.25, width = 1, height = 1) +  # Square-like AMR Profile boxes
+  scale_fill_manual(values = amr_colors, na.translate = FALSE) +  # AMR color scheme
+  labs(fill = "AMR") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),  # No x-axis labels
+    axis.text.y = element_text(color = "black", size = 8),  # Strain names on the y-axis
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),  # Adjust size of legend text
+    legend.title = element_text(size = 8),
+    legend.key.size = unit(0.25, "cm"),
+    legend.position = "bottom",  # Legend at the bottom
+    plot.margin = margin(t = 10, r = 5, b = 10, l = 10)  # Adjust margin for alignment
+  ) + coord_fixed(ratio = 1)
+
+# 2. Create the lytic profile heatmap on the right
+lytic_heatmap <- Combined_all %>%
+  filter(Timepoint == "20 Hours") %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria"),
+         Strain = factor(Strain, levels = strain_order_cocktail)) %>%
+  ggplot(aes(name, Strain, fill = growthpercent)) + 
+  geom_tile(color = "black", size = 0.25) +  # Lytic profile heatmap
+  ggtitle("AUC \n at 20 Hours") + 
+  labs(fill = 'Growth %') + 
+  scale_fill_gradient2(low = "white", high = "#EF2402", limits = c(0, 125)) +  # Growth percent color gradient
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, color = "black", size = 10),
+    axis.text.y = element_blank(),  # Hide strain names on lytic heatmap
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.length = unit(0.25, "cm")
+  )
+
+# Create the combined plot
+combined_plot <- amr_plot + lytic_heatmap +  # Equal width for both plots
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0))  # Remove margins
+
+# Display the combined plot
+print(combined_plot)
+
+order <- ordered_tree_hc$tip.label
+
+```
+
+
+```{r}
+library(ape)
+# Read the Newick file
+tree <- read.tree("core_tree_80percent_241015.nwk")
+
+# Compute a distance matrix based on branch lengths
+dist_matrix <- cophenetic(tree)
+
+# Perform hierarchical clustering on the distance matrix
+hc <- hclust(as.dist(dist_matrix))
+
+# Plot dendrogram of hierarchical clustering (optional)
+plot(as.phylo(hc), type = "phylogram", main = "Reordered Tree by Hierarchical Clustering")
+
+# Or convert it back to a tree and plot
+ordered_tree_hc <- as.phylo(hc)
+tree <- plot(ordered_tree_hc, type = "phylogram", cex = 0.8, edge.width = 2)
+title("Reordered Phylogenetic Tree by Hierarchical Clustering")
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("ggtree")
+
+library(ggtree)
+
+ggtree_obj <- ggtree(ordered_tree_hc) +
+  geom_text(aes(label = ""), size = 2) + xlim(0, 0.4) +
+  theme(
+    plot.margin = margin(t = 0, r = 0, b = 0, l = 0),  # Remove margins around the plot
+    axis.line = element_blank(),  # Remove any axis lines
+    axis.text = element_blank(),  # Remove axis text
+    axis.ticks = element_blank()  # Remove axis ticks
+  )
+  
+ggtree_obj
+
+```
+
+```{r merging the data based on ordering --> ordered_tree_hc}
+manual_order <- c("SM02KA", "Lipton23", "SM08LS", "SM09LS", "SM20TB", "SM23TB", "SM26KA", "SM29KA", "SM30KA", "SM35KA", "SM36KA", "SM16LS", "SM25LS", "SM31KA", "SM07LS", "K279a", "SM15KA", "SM22TB", "SM32KA", "SM27KA", "SM33KA", "SM28LS", "SM17LS", "SM05LS", "FL10", "SM71PII", "SM19TB", "SM74PII", "SM01KA", "SM10KA", "SM04LS", "SM21TB", "B28S", "B28B", "FMA2012", "SM12LS", "SM50JS", "SM73PII", "SMFLR19", "SM49LS", "AU32848", "SM11LS", "SM34KA", "SM03KA", "SM13KA", "SM14KA")
+
+
+
+# 1. Create the AMR profile heatmap on the left
+amr_plot_ordered <- Combined_all %>%
+  filter(Timepoint == "20 Hours") %>%
+  mutate(Strain = factor(Strain, levels = rev(manual_order))) %>%
+  ggplot(aes(x = 1, y = Strain, fill = AMR_Profile)) + 
+  geom_tile(color = "black", size = 0.25, width = 1, height = 1) +  # Square-like AMR Profile boxes
+  scale_fill_manual(values = amr_colors, na.translate = FALSE) +  # AMR color scheme
+  labs(fill = "AMR") +
+  theme_blank() +
+  theme(
+    axis.text.x = element_blank(),  # No x-axis labels
+    axis.text.y = element_text(color = "black", size = 8),  # Strain names on the y-axis
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),  # Adjust size of legend text
+    legend.title = element_text(size = 8),
+    legend.key.size = unit(0.25, "cm"),
+    legend.position = "bottom",  # Legend at the bottom
+    plot.margin = margin(t = 10, r = 5, b = 10, l = 10)  # Adjust margin for alignment
+  ) + coord_fixed(ratio = 1)
+
+lytic_heatmap_ordered <- Combined_all %>%
+  filter(Timepoint == "20 Hours") %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria"),
+         Strain = factor(Strain, levels = rev(manual_order))) %>%
+  ggplot(aes(name, Strain, fill = growthpercent)) + 
+  geom_tile(color = "black", size = 0.25) +  # Lytic profile heatmap
+  #ggtitle("AUC \n at 20 Hours") + 
+  labs(fill = 'Growth %') + 
+  scale_fill_gradient2(low = "white", high = "#EF2402", limits = c(0, 125)) +  # Growth percent color gradient
+  theme_blank() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, color = "black", size = 10),
+    axis.text.y = element_blank(),  # Hide strain names on lytic heatmap
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.length = unit(0.25, "cm")
+  )  + coord_fixed(ratio = 0.5)
+
+# Combine the plots
+combined_plot <- ggtree_obj + amr_plot_ordered + lytic_heatmap_ordered +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0))+
+  plot_annotation(title = "Combined Phylogenetic and AMR Data")
+
+# Display the combined plot
+print(combined_plot)
+
+# Save the combined plot if needed
+ggsave("combined_plot.pdf", plot = combined_plot, device = "pdf", width = 10, height = 8)
+
+
+
+
+
+
+
+```
+
