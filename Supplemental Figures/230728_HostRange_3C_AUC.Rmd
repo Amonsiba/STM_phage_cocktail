@@ -1,0 +1,599 @@
+---
+title: "Host Range Analysis - Set 2"
+author: "Alisha Monsibais"
+date: '2023-07-28'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(root.dir = "~/Desktop/230718_Host", 
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# Project Summary 
+STM strains (16) were grown to log phage OD600 of 0.1 and subjected to phage infection of ANB28, SBP2@2, KB824, and three phage cocktails at the following MOIs 0.001. Bacteria and phage lysates were aliqoute in a 96 well plate and read in the Aligent LogPhase 600 for 72 hours, at 37C, no shaking, 10 minute intervals
+
+## 1. Data Cleaning and Quality Control Check 
+```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
+library(knitr) #nice table output 
+library(tidyverse)
+library(reshape2) #helps melt data - data wrangling 
+library(ggpubr)
+library(growthcurver) #growth curve package 
+library(ggbreak) #ggarrange 
+library(broom)
+library(dplyr)
+library(lmerTest)
+library(sjPlot)
+library(rstatix) #pipefriendly stats 
+library(emmeans)
+```
+
+```{r loading in data}
+#Set Wd
+Curve1 <- read.csv("../Raw_data/230728_HostRange_Set2_MOI1_plate1.csv")
+Curve2 <- read.csv("../Raw_data/230728_HostRange_Set2_MOI1_plate2.csv")
+Curve3 <- read.csv("../Raw_data/230728_HostRange_Set2_MOI1_plate3.csv")
+Curve4 <- read.csv("../Raw_data/230728_HostRange_Set2_MOI1_plate4.csv")
+```
+
+```{r loading in maps}
+platemap1 <- read.csv("../Raw_data/230728_Plate1_map.csv")
+platemap2 <- read.csv("../Raw_data/230728_Plate2_map.csv")
+platemap3 <- read.csv("../Raw_data/230728_Plate3_map.csv")
+platemap4 <- read.csv("../Raw_data/230728_Plate4_map.csv")
+
+```
+
+
+```{r Data wragling, message=FALSE, warning=FALSE, include=FALSE}
+##### Fix Data for MTC #####
+#Rep 1
+Time <- Curve1[,1] #makes vector time character string
+Time <- Time[-c(1:6)] #removed 1-6 because format is incorrect
+fix <- c("00:00:00","00:10:00","00:20:00", "00:30:00", "00:40:00", "00:50:00") #fixes format
+Time <- append(fix, Time, after = length(fix)) #appends 
+#Change vector of Time from HH:MM:SS to numeric hour format
+Time <- sapply(strsplit(Time, ":"), function(x) {
+  x <- as.numeric(x); x[1] + x[2]/60 + x[3]/3600
+})
+Curve1$Time <- NULL #removes Time column in data frame
+Curve1 <- cbind(Time, Curve1) #adds new Time column to data frame with correct time format
+
+#Rep 2
+Time <- Curve2[,1] #makes vector time character string
+Time <- Time[-c(1:6)] #removed 1-6 because format is incorrect
+fix <- c("00:00:00","00:10:00","00:20:00", "00:30:00", "00:40:00", "00:50:00") #fixes format
+Time <- append(fix, Time, after = length(fix)) #appends 
+#Change vector of Time from HH:MM:SS to numeric hour format
+Time <- sapply(strsplit(Time, ":"), function(x) {
+  x <- as.numeric(x); x[1] + x[2]/60 + x[3]/3600
+})
+Curve2$Time <- NULL #removes Time column in data frame
+Curve2 <- cbind(Time, Curve2) #adds new Time column to data frame with correct time format
+
+#Rep 3
+Time <- Curve3[,1] #makes vector time character string
+Time <- Time[-c(1:6)] #removed 1-6 because format is incorrect
+fix <- c("00:00:00","00:10:00","00:20:00", "00:30:00", "00:40:00", "00:50:00") #fixes format
+Time <- append(fix, Time, after = length(fix)) #appends 
+#Change vector of Time from HH:MM:SS to numeric hour format
+Time <- sapply(strsplit(Time, ":"), function(x) {
+  x <- as.numeric(x); x[1] + x[2]/60 + x[3]/3600
+})
+Curve3$Time <- NULL #removes Time column in data frame
+Curve3 <- cbind(Time, Curve3) #adds new Time column to data frame with correct time format
+
+#Rep 4
+Time <- Curve4[,1] #makes vector time character string
+Time <- Time[-c(1:6)] #removed 1-6 because format is incorrect
+fix <- c("00:00:00","00:10:00","00:20:00", "00:30:00", "00:40:00", "00:50:00") #fixes format
+Time <- append(fix, Time, after = length(fix)) #appends 
+#Change vector of Time from HH:MM:SS to numeric hour format
+Time <- sapply(strsplit(Time, ":"), function(x) {
+  x <- as.numeric(x); x[1] + x[2]/60 + x[3]/3600
+})
+Curve4$Time <- NULL #removes Time column in data frame
+Curve4 <- cbind(Time, Curve4) #adds new Time column to data frame with correct time format
+
+#####Melt Data#####
+
+C1_melt <- melt(Curve1, id=("Time"), variable.name= "Well", value.name = "OD600")
+C1_melt$OD600 <- as.numeric(as.character(C1_melt$OD600)) #changes OD to numeric
+
+C2_melt <- melt(Curve2, id=("Time"), variable.name= "Well", value.name = "OD600")
+C2_melt$OD600 <- as.numeric(as.character(C2_melt$OD600)) #changes OD to numeric
+
+C3_melt <- melt(Curve3, id=("Time"), variable.name= "Well", value.name = "OD600")
+C3_melt$OD600 <- as.numeric(as.character(C3_melt$OD600)) #changes OD to numeric
+
+C4_melt <- melt(Curve4, id=("Time"), variable.name= "Well", value.name = "OD600")
+C4_melt$OD600 <- as.numeric(as.character(C4_melt$OD600)) #changes OD to numeric
+```
+
+```{r annotating data from plate map, message=FALSE, warning=FALSE, include=FALSE}
+
+Cannotated1 <- inner_join(C1_melt, platemap1, by='Well')
+Cannotated2 <- inner_join(C2_melt, platemap2, by='Well')
+Cannotated3 <- inner_join(C3_melt, platemap3, by='Well')
+Cannotated4 <- inner_join(C4_melt, platemap4, by='Well')
+```
+
+```{r Plotting 96 well plate to check QC parameters, echo=FALSE, message=FALSE, warning=FALSE}
+
+#Graphing in 96 well format to check plate bias or issues with potential contamination. 
+png("../../Figures/230728_Set2_plate1.png", units="in", width=10, height=6, res=600)
+C1 <- ggplot(Cannotated1, aes(x=Time, y=OD600, color = Strain, linetype = Phage ))+
+  ggtitle("Set 2 - Plate 1") +
+  geom_line() +
+  labs(x="Time(Hours)", y ="OD600nm") +
+  theme(
+    plot.title = element_text(size=12, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=9, face="bold"),
+    axis.title.y = element_text(size=9, face="bold"), 
+    axis.text.x = element_text(size=5), 
+    axis.text.y = element_text(size=5))+
+  facet_grid(Letter~Number) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+C1
+dev.off()
+
+png("../../Figures/230728_Set2_plate2.png", units="in", width=10, height=6, res=600)
+C2 <- ggplot(Cannotated2, aes(x=Time, y=OD600, color = Strain, linetype = Phage ))+
+  ggtitle("Set 2 - Plate 2") +
+  geom_line() +
+  labs(x="Time(Hours)", y ="OD600nm") +
+  theme(
+    plot.title = element_text(size=12, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=9, face="bold"),
+    axis.title.y = element_text(size=9, face="bold"), 
+    axis.text.x = element_text(size=5), 
+    axis.text.y = element_text(size=5))+
+  facet_grid(Letter~Number) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+C2
+dev.off()
+
+png("../../Figures/230728_Set2_plate3.png", units="in", width=10, height=6, res=600)
+C3 <- ggplot(Cannotated3, aes(x=Time, y=OD600, color = Strain, linetype = Phage ))+
+  ggtitle("Set 2 - Plate 3") +
+  geom_line() +
+  labs(x="Time(Hours)", y ="OD600nm") +
+  theme(
+    plot.title = element_text(size=12, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=9, face="bold"),
+    axis.title.y = element_text(size=9, face="bold"), 
+    axis.text.x = element_text(size=5), 
+    axis.text.y = element_text(size=5))+
+  facet_grid(Letter~Number) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+C3
+dev.off()
+
+png("../../Figures/230728_Set2_plate4.png", units="in", width=10, height=6, res=600)
+C4 <- ggplot(Cannotated1, aes(x=Time, y=OD600, color = Strain, linetype = Phage ))+
+  ggtitle("Set 2 - Plate 4") +
+  geom_line() +
+  labs(x="Time(Hours)", y ="OD600nm") +
+  theme(
+    plot.title = element_text(size=12, hjust = 0.5, face="bold"),
+    axis.title.x = element_text(size=9, face="bold"),
+    axis.title.y = element_text(size=9, face="bold"), 
+    axis.text.x = element_text(size=5), 
+    axis.text.y = element_text(size=5))+
+  facet_grid(Letter~Number) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+C4
+dev.off()
+
+Plate_96 <- ggarrange(C1, C2, C3, C4,
+                      labels = c("A", "B", "C", "D"),
+                      #ncol = 1, nrow = 4, 
+                      common.legend = TRUE, legend = "right")
+Plate_96
+
+
+
+```
+
+
+
+```{r AUC - 12 Hours}
+library(gcplyr)
+
+C1_12 <- Cannotated1 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,12.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+C2_12 <- Cannotated2 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,12.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+C3_12 <- Cannotated3 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,12.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+   
+C4_12 <- Cannotated4 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,12.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+#Combinds all the data 
+Set2.12 <- C1_12 %>%
+  union_all(C2_12) %>%
+  union_all(C3_12) %>%
+  union_all(C4_12) %>%
+  filter(Strain != "B28B") #B28B was in first set 
+
+
+```
+## Plot 12 hour Data 
+
+```{r plotting}
+png("../../Figures/230728_heapmap_auc_12hours.png", units="in", width=12, height=6, res=1200)
+Set2.12 %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria")) %>%
+  ggplot(aes(Strain, name, fill= growthpercent)) + 
+  theme_blank() + geom_tile(color="black", size = 0.25) +
+  ggtitle("Set 1 - Area Under the Curve - 12 Hours") +
+  labs(fill = 'Growth %')+ ylab("Phage Input")+
+  scale_fill_gradient2(low="white", high="#EF2402") + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1,color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 12, face = "bold"), 
+        axis.title.y = element_text(color = "black", size = 12, face = "bold")) 
+dev.off()
+```
+
+```{r AUC - 20 Hours}
+
+C1_20 <- Cannotated1 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,20.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+C2_20 <- Cannotated2 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,20.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+C3_20 <- Cannotated3 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,20.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+   
+C4_20 <- Cannotated4 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,20.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+#Combinds all the data 
+Set2.20 <- C1_20 %>%
+  union_all(C2_20) %>%
+  union_all(C3_20) %>%
+  union_all(C4_20) %>%
+  filter(Strain != "B28B") #B28B was in first set 
+
+
+```
+
+
+## Plot 20 hour Data 
+
+```{r plotting}
+png("../../Figures/230728_heapmap_auc_20hours.png", units="in", width=12, height=6, res=1200)
+Set2.20 %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria")) %>%
+  ggplot(aes(Strain, name, fill= growthpercent)) + 
+  theme_blank() + geom_tile(color="black", size = 0.25) +
+  ggtitle("Set 1 - Area Under the Curve - 20 Hours") +
+  labs(fill = 'Growth %')+ ylab("Phage Input")+
+  scale_fill_gradient2(low="white", high="#EF2402") + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1,color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 12, face = "bold"), 
+        axis.title.y = element_text(color = "black", size = 12, face = "bold")) 
+dev.off()
+```
+
+
+```{r AUC - 12 Hours}
+
+C1_40 <- Cannotated1 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,40.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+C2_40 <- Cannotated2 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,40.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+C3_40 <- Cannotated3 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,40.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+   
+C4_40 <- Cannotated4 %>% 
+  mutate(Time = round(Time, 1)) %>%
+  filter(between(Time,0.0,40.0)) %>%
+  filter(Phage %in% c("sm", "ANB28", "KB824", "SBP2_2", "3C", "media+SM")) %>%
+  mutate(Phage = case_when(
+  Phage == "3C" ~ "Cocktail",
+  Phage == "SBP2_2" ~ "SBP2Φ2",
+  Phage == "sm" ~ "Bacteria",
+  Phage == "media+SM" ~ "Blank",
+  TRUE ~ as.character(Phage))) %>%
+  group_by(Phage, Strain) %>%
+  summarise(uncorrected_auc = auc(y = OD600, x = as.numeric(Time))) %>%
+  ungroup() %>%
+  mutate(blank = uncorrected_auc[Phage =='Blank']) %>% filter(Phage != "Blank") %>%
+  mutate(auc = uncorrected_auc - blank) %>%
+  group_by(Strain) %>%
+  mutate(AvgBac_AUC = auc[Phage =='Bacteria']) %>%
+  mutate(growthpercent = (1-(AvgBac_AUC - auc)/AvgBac_AUC)*100) 
+
+
+#Combinds all the data 
+Set2.40 <- C1_40 %>%
+  union_all(C2_40) %>%
+  union_all(C3_40) %>%
+  union_all(C4_40) %>%
+  filter(Strain != "B28B") #B28B was in first set 
+
+
+```
+```{r plotting}
+png("../../Figures/230728_heapmap_auc_40hours.png", units="in", width=12, height=6, res=1200)
+Set2.40 %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria")) %>%
+  ggplot(aes(Strain, name, fill= growthpercent)) + 
+  theme_blank() + geom_tile(color="black", size = 0.25) +
+  ggtitle("Set 1 - Area Under the Curve - 40 Hours") +
+  labs(fill = 'Growth %')+ ylab("Phage Input")+
+  scale_fill_gradient2(low="white", high="#EF2402") + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1,color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 12, face = "bold"), 
+        axis.title.y = element_text(color = "black", size = 12, face = "bold")) 
+dev.off()
+```
+
+
+##Combind Data 
+
+```{r}
+
+#previous data from set 1
+Set1.12 <- read.csv("../Intermediate_files/230721_cleanauc_Set1.12.csv")
+Set1.20 <- read.csv("../Intermediate_files/230721_cleanauc_Set1.20.csv")
+Set1.40 <- read.csv("../Intermediate_files/230721_cleanauc_Set1.40.csv")
+
+Combined_12hours <-  Set1.12 %>%
+  union_all(Set2.12)
+
+Combined_20hours <-  Set1.20 %>%
+  union_all(Set2.20)
+
+Combined_40hours <-  Set1.40 %>%
+  union_all(Set2.40)
+
+write.csv(Combined_12hours,file='../Intermediate_files/All_cleanauc.12.csv', row.names=FALSE)
+write.csv(Combined_20hours,file='../Intermediate_files/All_cleanauc.20.csv', row.names=FALSE)
+write.csv(Combined_40hours,file='../Intermediate_files/All_cleanauc.40.csv', row.names=FALSE)
+
+png("../../Figures/Combined_Set1_Set2_12hours_auc.png", units="in", width=12, height=6, res=1200)
+Combined_12hours %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria")) %>%
+  ggplot(aes(Strain, name, fill= growthpercent)) + 
+  theme_blank() + geom_tile(color="black", size = 0.25) +
+  ggtitle("Area Under the Curve for 12 Hours") + labs(fill = 'Growth %')+ ylab("Phage Input")+
+  scale_fill_gradient2(low="white", high="#EF2402", midpoint = 0) + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1,color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 12, face = "bold"), 
+        axis.title.y = element_text(color = "black", size = 12, face = "bold")) 
+dev.off()
+
+png("../../Figures/Combined_Set1_Set2_20hours_auc.png", units="in", width=12, height=6, res=1200)
+Combined_20hours %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria")) %>%
+  ggplot(aes(Strain, name, fill= growthpercent)) + 
+  theme_blank() + geom_tile(color="black", size = 0.25) +
+  ggtitle("Area Under the Curve for 20 Hours") + labs(fill = 'Growth %')+ ylab("Phage Input")+
+  scale_fill_gradient2(low="white", high="#EF2402", midpoint = 0) + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1,color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 12, face = "bold"), 
+        axis.title.y = element_text(color = "black", size = 12, face = "bold")) 
+dev.off()
+
+png("../../Figures/Combined_Set1_Set2_40hours_auc.png", units="in", width=12, height=6, res=1200)
+Combined_40hours %>%
+  mutate(name = fct_relevel(Phage, "Cocktail", "SBP2Φ2", "KB824", "ANB28", "Bacteria")) %>%
+  ggplot(aes(Strain, name, fill= growthpercent)) + 
+  theme_blank() + geom_tile(color="black", size = 0.25) +
+  ggtitle("Area Under the Curve for 40 Hours") + labs(fill = 'Growth %')+ ylab("Phage Input")+
+  scale_fill_gradient2(low="white", high="#EF2402", midpoint = 0) + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1,color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        axis.title.x = element_text(color = "black", size = 12, face = "bold"), 
+        axis.title.y = element_text(color = "black", size = 12, face = "bold")) 
+dev.off()
+```
+
+
