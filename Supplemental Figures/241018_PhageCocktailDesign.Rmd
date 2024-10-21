@@ -1,0 +1,300 @@
+---
+title: "Sister vs Cousin Cocktail Investigation"
+author: "Script by Alisha Monsibais, wetlab by Alisha and Olivia (7/22/22) "
+date: '2024-07-23'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# Project Summary 
+Bacteria was plated on a 96 well plate and exposed to the following phage: ANB28, KB824, SBP2phi2, SBP4phi1, SBP5phi1. Three were mixed into a similar phage cocktial SBP2phi2, SBP4phi1 and SBP5phi1, while three were mixed into a genetically distint phage cocktail, ANB28, KB824, and SBP2phi2. 
+
+This was ran on the molecular device plate reader at OD600 for 72 hours at 37C. 
+Date: 7/22/22
+
+## 1. Exploratory Data Analysis 
+```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
+library(knitr) #nice table output 
+library(tidyverse)
+library(reshape2) #helps melt data - data wrangling 
+library(ggpubr)
+library(dplyr)
+library(gcplyr) #AUC function 
+
+
+library(ggplot2)
+library(viridis)
+
+```
+
+```{r loading in data}
+#MOL DIA - RT - (SI: 250) 
+rep37<- read.delim("220722_Eco_Cocktail_rep1.1.txt", header = FALSE, sep = "\t", skip = 2)
+
+```
+
+```{r}
+########MOL DIA Formatting (SI : 319) MOI 0.2 and 1.0 ###########
+#More formatting - 37C (SI : 319)
+names(rep37) = rep37[1,] #duplicates row 1 into row names
+rep37 = rep37[-1,] #removes row 1
+rep37 = rep37[,-2] #removed column 2 (temp log)
+names(rep37)[1] <- "Time" #Relabels Time(HH:MM:SS) to just Time
+#removed the bottom two lines to only have data - data include "~end and file name"
+rep37 <- slice(rep37, 1:(n()-2))
+
+Time <- rep37[,1] #makes vector time character string
+Time <- Time[-c(1:4)] #removed 1-6 because format is incorrect
+fix <- c("00:00:00","00:15:00","00:30:00","00:45:00") #fixes format
+Time <- append(fix, Time, after = length(fix)) #appends 
+
+#Change vector of Time from HH:MM:SS to numeric hour format
+Time <- sapply(strsplit(Time, ":"), function(x) {
+  x <- as.numeric(x); x[1] + x[2]/60 + x[3]/3600
+})
+rep37$Time <- NULL #removes Time column in data frame
+rep37 <- cbind(Time, rep37) #adds new Time column to data frame with correct time format
+
+#########  Reformat the Data  #########
+
+#Reshaping the data
+t_rep37 <- melt(rep37, id=("Time"), variable.name="Well", value.name = "OD600") 
+
+#Changes the OD reading from character to numeric 
+t_rep37$OD600 <- as.numeric(as.character(t_rep37$OD600))
+
+#To view the summary of the data
+summary(t_rep37)
+head(t_rep37)
+```
+
+
+
+```{r loading in maps}
+#########  Annotate the Data  #########
+
+#Retrieving the map to annotated the Data
+platemap<- read.csv("220722_Eco_Cocktail_map.csv")
+
+#Viewing the map
+head(platemap)
+
+#The data will be reshaped and paired by Wells with the use of Inner_join (dplyr)
+rep37_annotated <- inner_join(t_rep37, platemap, by = "Well")
+
+```
+
+
+```{r forloop for Data wrangling}
+
+rep37_96well <- ggplot(rep37_annotated, aes(x=Time, y=OD600, color = Bacteria))+
+  ggtitle("STM vs Individual Phage and Cocktails ", subtitle = "Rep 1 - MOI 1 - 37C") +
+  geom_line() +
+  labs(x="Time(Hours)", y ="OD600nm") +
+  theme(
+    plot.title = element_text(size=20, face="bold"),
+    axis.title.x = element_text(size=10, face="bold"),
+    axis.title.y = element_text(size=10, face="bold"))+
+  theme(plot.title = element_text(hjust = 0.5))+
+  facet_grid(Letter~Column) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+#Shows graph
+rep37_96well
+
+
+```
+
+```{r Synergy Plate}
+rep37_annotated 
+
+Cocktail_data <- rep37_annotated %>%
+   filter(Time <= 40) %>%
+   filter(Phage %in% c("Sister", "Cousin", "SM")) %>%
+   filter(Bacteria != "Media") %>%
+   mutate(Phage = recode(Phage, 
+                         "SM" = "Bacteria Control", 
+                         "Sister" = "Similar Cocktail", 
+                         "Cousin" = "Distinct Cocktail"))
+
+ggplot(Cocktail_data, aes(x=Time, y = OD600, color = Phage)) +
+  geom_line() +
+  scale_color_manual(values = c("black","firebrick1", "slateblue4"))+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 30)) +
+  xlab("Time (hours)") + ylab("OD600") +
+  facet_wrap( ~ Bacteria, ncol=3) +
+  theme(strip.text.x = element_text(size = 20)) +
+  theme_linedraw()
+
+
+AUC_results_1 <- rep37_annotated %>%
+  group_by(Well) %>%
+  mutate(Time = round(Time, 1)) %>%
+  summarise(AUC = auc(y=OD600, x=Time)) %>%
+  ungroup() %>%
+  inner_join(platemap, by='Well') %>%
+  filter(Bacteria != "Media") %>%
+  filter(Phage %in% c("Sister", "Cousin", "SM")) %>%
+  mutate(Phage = recode(Phage, 
+                         "SM" = "Bacteria Control", 
+                         "Sister" = "Similar Cocktail", 
+                         "Cousin" = "Distinct Cocktail"))
+
+cocktail.lm <- lm(AUC ~ Phage, data = AUC_results_1)
+cocktail.av <- aov(cocktail.lm)
+cocktail_anova_table <- anova(cocktail.av)
+write.csv(cocktail_anova_table, file = "Cocktail_anova_table.csv")
+ 
+library(broom)
+library(knitr)
+
+cocktail.posthoc <- TukeyHSD(cocktail.av)
+tidy(cocktail.posthoc) %>% knitr::kable()
+cocktail_HSD_table <- tidy(cocktail.posthoc)
+write.csv(cocktail_HSD_table, file = "cocktail_HSD_table.csv")
+
+library(report) 
+
+report(cocktail.av)
+
+```
+
+
+```{r}
+
+Violin <- AUC_results_1  %>%
+  ggplot(aes(x=Phage, y=AUC, fill = Phage)) + 
+  geom_violin(trim = TRUE) +  # Trimming the violins to the data range
+  scale_fill_manual(values=c("gray69", "firebrick3", "slateblue4")) +
+   geom_jitter(position = position_jitter(width = 0.2, height = 0), size = 1.2, alpha = 0.7) + 
+  labs(y = "AUC", x = NULL) +
+  ggtitle("Area Under the Curve of STM Strains \n after 40 Hours with Differing Phage Cocktails") +
+  theme_linedraw() +
+  ylim(0,110)+
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
+    axis.title.x = element_text(size = 15, face = "bold"),
+    axis.title.y = element_text(size = 15, face = "bold"), 
+    axis.text.x = element_text(size = 12), 
+    axis.text.y = element_text(size = 12), 
+    legend.position = "none") +
+  stat_compare_means(method = "anova", label.y = 0) 
+
+Violin
+ggsave("SisterVSCousin.png", plot = Violin, device = "png", width = 7, height = 5)
+
+
+
+
+
+```
+
+```{r Sister vs Cousin Genetic info}
+
+viridic_sister <- read.delim("Sister_VIRIDIC_sim-dist_table.tsv",header = T,sep = '\t')
+viridic_cousin <- read.delim("Cousin_VIRIDIC_sim-dist_table.tsv",header = T,sep = '\t')
+
+
+
+vir.corr.sister <- viridic_sister %>%
+  rename("SBP5Φ1" = "SBP5phi1", 
+         "SBP4Φ1" = "SBP4phi1") %>%
+  mutate(genome = case_when(
+    genome == "SBP5phi1" ~ "SBP5Φ1",
+    genome == "SBP4phi1" ~ "SBP4Φ1",
+    TRUE ~ as.character(genome)))
+
+vir.corr.cousin <- viridic_cousin %>%
+  rename("SBP2Φ2" = "SBP2phi2") %>%
+  mutate(genome = case_when(
+    genome == "SBP2phi2" ~ "SBP2Φ2",
+    TRUE ~ as.character(genome)))
+
+
+#sister
+vir.melt.sister <- melt(vir.corr.sister, id.vars = "genome")
+rownames(vir.corr.sister) <- vir.corr.sister[,1]
+clusters_s <- hclust(dist(vir.corr.sister[,-1]))
+clusters_2_s <- hclust(dist(t(vir.corr.sister[,-1])))
+clusters.order_s <- clusters_2_s$labels[clusters_2_s$order]
+
+#Order for re-organize data
+cat(clusters.order_s)
+
+
+
+vir.melt.sister$variable <- factor(vir.melt.sister$variable, ordered=T, levels= clusters.order_s, 
+                            labels= c("SBP5Φ1", "KB824" , "SBP4Φ1"))
+vir.melt.sister$genome <- factor(vir.melt.sister$genome, ordered=T, levels= clusters.order_s, 
+                       labels= c("SBP5Φ1", "KB824" , "SBP4Φ1"))
+
+
+Sister <- ggplot(data = vir.melt.sister) +
+  theme_blank()+
+  geom_tile(aes(x=genome, y=variable, fill=value), color="black") +
+  labs(fill="", x='',y='') +
+  geom_text(aes(x=genome, y=variable, label = round(value, digits = 2))) +
+  scale_fill_gradientn(colors = c("#ffffb2", '#00d400','#00a300','#004100'),  breaks= c(70,9,95,100),labels=c("70 %", "90 %","95 %","100 %"), limits=c(70,100),
+                       na.value = "white") +
+  theme(axis.text = element_text(size=15, color="black"),
+    axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
+    legend.text = element_text(size=10),
+    legend.key.size = unit(x = 10, units = "mm")) + coord_fixed(ratio = 1) 
+
+ggsave("VIRDIC_heatmap_sister.pdf", plot = Sister, width = 6, height = 6, units = "in", dpi = 1200)
+
+
+theme_blank <- function(...) {
+  ret <- theme_bw(...)
+  ret$line <- element_blank()
+  ret$rect <- element_blank()
+  ret$strip.text <- element_blank()
+  ret$axis.text <- element_blank()
+  ret$plot.title <- element_blank()
+  ret$axis.title <- element_blank()
+  ret$plot.margin <- structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit")
+  ret
+}
+
+#cousint
+vir.melt.cousin <- melt(vir.corr.cousin, id.vars = "genome")
+rownames(vir.corr.cousin) <- vir.corr.cousin[,1]
+clusters_c <- hclust(dist(vir.corr.cousin[,-1]))
+clusters_2_c <- hclust(dist(t(vir.corr.cousin[,-1])))
+clusters.order_c <- clusters_2_c$labels[clusters_2_c$order]
+
+#Order for re-organize data
+cat(clusters.order_c)
+
+vir.melt.cousin$variable <- factor(vir.melt.cousin$variable, ordered=T, levels= clusters.order_c, 
+                            labels= c("KB824", "ANB28", "SBP2Φ2"))
+vir.melt.cousin$genome <- factor(vir.melt.cousin$genome, ordered=T, levels= clusters.order_c, 
+                       labels= c("KB824", "ANB28", "SBP2Φ2"))
+
+
+cousin <- ggplot(data = vir.melt.cousin) +
+  theme_blank()+
+  geom_tile(aes(x=genome, y=variable, fill=value), color="black") +
+  labs(fill="", x='',y='') +
+  geom_text(aes(x=genome, y=variable, label = round(value, digits = 2))) +
+  scale_fill_gradientn(colors = c("#ffffb2", '#00d400','#00a300','#004100'),  breaks= c(70,9,95,100),labels=c("70 %", "90 %","95 %","100 %"), limits=c(70,100),
+                       na.value = "white") +
+  theme(axis.text = element_text(size=15, color="black"),
+    axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
+    legend.text = element_text(size=10),
+    legend.key.size = unit(x = 10, units = "mm")) + coord_fixed(ratio = 1) 
+
+ggsave("VIRDIC_heatmap_cousin.pdf", plot = cousin, width = 6, height = 6, units = "in", dpi = 1200)
+
+
+
+
+
+```
+
